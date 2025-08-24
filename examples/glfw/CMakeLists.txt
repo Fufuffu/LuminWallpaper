@@ -1,6 +1,18 @@
 ﻿# Try to find opengl
 find_package(OpenGL REQUIRED)
 
+# Try to find glfw first, then fetch a specific tag for determinism
+find_package(glfw3 QUIET)
+if(NOT glfw3_FOUND)
+    include(FetchContent)
+    FetchContent_Declare(
+        glfw
+        GIT_REPOSITORY https://github.com/glfw/glfw.git
+        GIT_TAG 3.4
+    )
+    FetchContent_MakeAvailable(glfw)
+endif()
+
 function(add_example example_name source_file)
   add_executable(${example_name} ${source_file})
 
