@@ -16,7 +16,7 @@ endif()
 function(add_example example_name source_file)
   add_executable(${example_name} ${source_file})
 
-  # Link: rely on transitive include paths from raylib and your library
+  # Link: rely on transitive include paths from glfw and your library
   target_link_libraries(${example_name} PRIVATE glfw ${PROJECT_NAME})
 
   if(MSVC)
