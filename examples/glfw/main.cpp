@@ -1,15 +1,23 @@
 #ifdef __APPLE__
 #define GLFW_EXPOSE_NATIVE_COCOA
-#else
+#elif __WINDOWS__
 #define GLFW_EXPOSE_NATIVE_WIN32
+#elif __LINUX__
+#define GLFW_EXPOSE_NATIVE_X11
+//TODO: Test on Linux
 #endif
 
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
+// use std::max and std::min from algorithm instead of max and min macros
+#undef max
+#undef min
+
 #include <lumin.h>
 
 #include <iostream>
+#include <algorithm>
 #include <chrono>
 #include <thread>
 #include <cmath>
@@ -55,9 +63,12 @@ int main()
 	#ifdef __APPLE__
 	id nsWindow = glfwGetCocoaWindow(window);
 	lumin::ConfigureWallpaperWindow(nsWindow, monitorInfo);
-	#else
+	#elif __WINDOWS__
 	HWND hwnd = glfwGetWin32Window(window);
 	lumin::ConfigureWallpaperWindow(hwnd, monitorInfo);
+	#elif __LINUX__
+	Window x11Window = glfwGetX11Window(window);
+	lumin::ConfigureWallpaperWindow(x11Window, monitorInfo);
 	#endif
 
 	// Enable vsync. (caps fps to monitor refresh rate)
