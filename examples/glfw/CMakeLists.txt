@@ -1,9 +1,24 @@
 ﻿# Try to find opengl
 find_package(OpenGL REQUIRED)
 
-# Try to find glfw first, then fetch a specific tag for determinism
-find_package(glfw3 QUIET)
-if(NOT glfw3_FOUND)
+# Prefer an existing GLFW target (e.g. via raylib), then find, then fetch
+set(GLFW_TARGET "")
+if(TARGET glfw)
+    set(GLFW_TARGET glfw)
+elseif(TARGET glfw::glfw)
+    set(GLFW_TARGET glfw::glfw)
+else()
+    find_package(glfw3 QUIET)
+    if(glfw3_FOUND)
+        if(TARGET glfw::glfw)
+            set(GLFW_TARGET glfw::glfw)
+        elseif(TARGET glfw)
+            set(GLFW_TARGET glfw)
+        endif()
+    endif()
+endif()
+
+if(GLFW_TARGET STREQUAL "")
     include(FetchContent)
     FetchContent_Declare(
         glfw
@@ -11,14 +26,15 @@ if(NOT glfw3_FOUND)
         GIT_TAG 3.4
     )
     FetchContent_MakeAvailable(glfw)
+    set(GLFW_TARGET glfw)
 endif()
 
 function(add_example example_name source_file)
     add_executable(${example_name} ${source_file})
 
-    # Link: rely on transitive include paths from opengl and glfw and your library
+    # Link: rely on transitive include paths from opengl and glfw and the library
     target_link_libraries(${example_name} PRIVATE OpenGL::GL ${PROJECT_NAME})
-    target_link_libraries(${example_name} PRIVATE glfw ${PROJECT_NAME})
+    target_link_libraries(${example_name} PRIVATE ${GLFW_TARGET} ${PROJECT_NAME})
 
     if(MSVC)
     target_compile_definitions(${example_name} PRIVATE
@@ -52,7 +68,7 @@ function(add_example example_name source_file)
     set_target_properties(${example_name} PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_GUI_IDENTIFIER "com.lwp.${example_name}"
-        MACOSX_BUNDLE_BUNDLE_NAME "Lumin Live Wallpaper Raylib Demo"
+        MACOSX_BUNDLE_BUNDLE_NAME "Lumin Live Wallpaper GLFW Demo"
         MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
         MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION}
         MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in"

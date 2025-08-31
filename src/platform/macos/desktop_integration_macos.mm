@@ -205,7 +205,8 @@ namespace lumin {
                         [ownerStr isEqualToString:@"Window Server"] ||
                         [ownerStr isEqualToString:@"Dock"] ||
                         [ownerStr isEqualToString:@"Finder"] ||
-                        [ownerStr isEqualToString:@"Wallpaper"]) {
+                        [ownerStr isEqualToString:@"Wallpaper"] ||
+                        [ownerStr isEqualToString:@"Screenshot"]) {
                         continue;
                     }
                     
@@ -228,7 +229,7 @@ namespace lumin {
                             // Check if this is a fullscreen window (covers most of the monitor)
                             double windowCoverage = intersectionPixels / (double)totalPixels;
                             if (windowCoverage > 0.9) { // 90% coverage indicates fullscreen
-                                //std::cout << "window name: " << [ownerStr UTF8String] << std::endl;
+                                // std::cout << "window name: " << [ownerStr UTF8String] << std::endl;
                                 hasFullscreenWindow = true;
                             }
                         }
@@ -240,13 +241,13 @@ namespace lumin {
             
             // If Mission Control is active, never consider the monitor occluded
             if (missionControlActive) {
-                //std::cout << "Mission Control active" << std::endl;
+                // std::cout << "Mission Control active" << std::endl;
                 return false;
             }
             
             // If there's a fullscreen window, consider it occluded regardless of threshold
             if (hasFullscreenWindow) {
-                //std::cout << "Fullscreen window active" << std::endl;
+                // std::cout << "Fullscreen window active" << std::endl;
                 return true;
             }
             
