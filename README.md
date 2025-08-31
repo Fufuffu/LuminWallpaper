@@ -1,8 +1,8 @@
 # Lumin - Live Wallpaper SDK 
 ![Logo](images/Logo.png)
 
-This library allows users to create dynamic wallpapers on Windows, macOS and Linux   
-using the game or render engine of your choice!
+This library allows you to create dynamic wallpapers on Windows, macOS, and Linux   
+using the game or rendering engine of your choice.
 
 ## Previews
 ![Matrix](images/matrix.webp)
@@ -10,17 +10,17 @@ using the game or render engine of your choice!
 
 ## Features
 
-- Supports Windows 11 24H2 and prior!
-- Provides mouse input replacements for interactive desktops
-- Supports Multi Monitor Setups and is DPI aware.
-- Doesn't Render if Wallpaper or Monitor is occluded
+- Supports Windows 11 24H2 and prior.
+- Provides mouse input replacements for interactive desktops.
+- Supports multi‑monitor setups and is DPI aware.
+- Doesn't render if the wallpaper or monitor is occluded.
 
 ## Getting Started
 
 ### Installation
 
-Simply add the library to your CMake Config
-```md
+Simply add the library to your CMake config
+```cmake
 # Pin a tag or branch
 set(LWP_GIT_TAG main CACHE STRING "Git tag/branch for LuminWallpaper")
 
@@ -42,10 +42,10 @@ The only requirement is that you get a handle to the window the engine is using 
 along with the info for which monitors desktop should be replaced.
 
 - `HWND` on Windows 
-- `NSWindow` on macOS
-- `X11Window` on Linux
+- `NSWindow*` (Objective‑C `id`) on macOS
+- `Window` (X11) on Linux
 
-### RayLib integration
+### raylib integration
 ```cpp
 #include <iostream>
 
@@ -77,7 +77,7 @@ int main()
 		// Update the mouse state of the replacement api.
 		lumin::UpdateMouseState();
 
-		// skip rendering if the wallpaper is occluded more than 95%
+		// Skip rendering if the wallpaper is occluded more than 95%.
 		if (lumin::IsMonitorOccluded(monitorInfo, 0.95)) {
 			std::cout << "Wallpaper is occluded" << std::endl;
 			WaitTime(0.1);
@@ -114,15 +114,29 @@ int main()
 
 ### GLFW integration
 ```cpp
+#if defined(__APPLE__)
+#define GLFW_EXPOSE_NATIVE_COCOA
+#elif defined(_WIN32) || defined(_WIN64)
 #define GLFW_EXPOSE_NATIVE_WIN32
+#elif defined(__linux__)
+#define GLFW_EXPOSE_NATIVE_X11
+//TODO: Test on Linux
+#endif
+
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
+
+// use std::max and std::min from algorithm instead of max and min macros
+#undef max
+#undef min
 
 #include <lumin.h>
 
 #include <iostream>
+#include <algorithm>
 #include <chrono>
 #include <thread>
+#include <cmath>
 
 int main()
 {
@@ -138,6 +152,16 @@ int main()
 		return -1;
 	}
 
+	// Improve HiDPI behavior and per-monitor scaling where supported
+	#if defined(GLFW_SCALE_TO_MONITOR)
+	glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
+	#endif
+	#if defined(__APPLE__)
+		#if defined(GLFW_COCOA_RETINA_FRAMEBUFFER)
+		glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GLFW_TRUE);
+		#endif
+	#endif
+
 	// Create GLFW window with the size of the monitor.
 	GLFWwindow *window = glfwCreateWindow(
 		monitorInfo.width, monitorInfo.height, "GLFW Wallpaper", nullptr, nullptr
@@ -152,8 +176,16 @@ int main()
 	glfwMakeContextCurrent(window);
 
 	// Retrieve the handle for the GLFW-created window and configure it with lumin.
+	#if defined(__APPLE__)
+	id nsWindow = glfwGetCocoaWindow(window);
+	lumin::ConfigureWallpaperWindow(nsWindow, monitorInfo);
+	#elif defined(_WIN32) || defined(_WIN64)
 	HWND hwnd = glfwGetWin32Window(window);
 	lumin::ConfigureWallpaperWindow(hwnd, monitorInfo);
+	#elif defined(__linux__)
+	Window x11Window = glfwGetX11Window(window);
+	lumin::ConfigureWallpaperWindow(x11Window, monitorInfo);
+	#endif
 
 	// Enable vsync. (caps fps to monitor refresh rate)
 	glfwSwapInterval(1);
@@ -180,7 +212,7 @@ int main()
 		glClearColor(0.1f, 0.2f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		// Draw here
+		// Draw here ... 
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();

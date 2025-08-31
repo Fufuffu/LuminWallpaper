@@ -1,16 +1,16 @@
-#ifdef __APPLE__
+#if defined(__APPLE__)
 #define GLFW_EXPOSE_NATIVE_COCOA
-#elif __WINDOWS__
+#elif defined(_WIN32) || defined(_WIN64)
 #define GLFW_EXPOSE_NATIVE_WIN32
-#elif __LINUX__
+#elif defined(__linux__)
 #define GLFW_EXPOSE_NATIVE_X11
-//TODO: Test on Linux
+// TODO: Validate on Linux
 #endif
 
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
-// use std::max and std::min from algorithm instead of max and min macros
+// Use std::max and std::min from <algorithm> instead of max and min macros
 #undef max
 #undef min
 
@@ -37,11 +37,11 @@ int main()
 	}
 
 	// Improve HiDPI behavior and per-monitor scaling where supported
-	#ifdef GLFW_SCALE_TO_MONITOR
+	#if defined(GLFW_SCALE_TO_MONITOR)
 	glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
 	#endif
-	#ifdef __APPLE__
-		#ifdef GLFW_COCOA_RETINA_FRAMEBUFFER
+	#if defined(__APPLE__)
+		#if defined(GLFW_COCOA_RETINA_FRAMEBUFFER)
 		glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GLFW_TRUE);
 		#endif
 	#endif
@@ -60,13 +60,13 @@ int main()
 	glfwMakeContextCurrent(window);
 
 	// Retrieve the handle for the GLFW-created window and configure it with lumin.
-	#ifdef __APPLE__
+	#if defined(__APPLE__)
 	id nsWindow = glfwGetCocoaWindow(window);
 	lumin::ConfigureWallpaperWindow(nsWindow, monitorInfo);
-	#elif __WINDOWS__
+	#elif defined(_WIN32) || defined(_WIN64)
 	HWND hwnd = glfwGetWin32Window(window);
 	lumin::ConfigureWallpaperWindow(hwnd, monitorInfo);
-	#elif __LINUX__
+	#elif defined(__linux__)
 	Window x11Window = glfwGetX11Window(window);
 	lumin::ConfigureWallpaperWindow(x11Window, monitorInfo);
 	#endif
@@ -76,7 +76,7 @@ int main()
 
 	// Main render loop.
 	while (!glfwWindowShouldClose(window)) {
-		// Update the mouse state of the replacement api.
+		// Update the mouse state of the replacement API.
 		lumin::UpdateMouseState();
 
 		// Skip rendering if the wallpaper is occluded more than 95%.
@@ -86,7 +86,7 @@ int main()
 		}
 
 		// Skip rendering if the desktop is locked.
-		// This is useful to avoid unnecessary rendering when the user is not interacting with the desktop.
+		// This avoids unnecessary rendering when the user is not interacting with the desktop.
 		if (lumin::IsDesktopLocked()) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));
 			continue;
