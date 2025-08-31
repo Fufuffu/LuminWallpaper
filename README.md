@@ -120,13 +120,13 @@ int main()
 #define GLFW_EXPOSE_NATIVE_WIN32
 #elif defined(__linux__)
 #define GLFW_EXPOSE_NATIVE_X11
-//TODO: Test on Linux
+// TODO: Validate on Linux
 #endif
 
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
-// use std::max and std::min from algorithm instead of max and min macros
+// Use std::max and std::min from <algorithm> instead of max and min macros
 #undef max
 #undef min
 
@@ -186,7 +186,7 @@ int main()
 	Window x11Window = glfwGetX11Window(window);
 	lumin::ConfigureWallpaperWindow(x11Window, monitorInfo);
 	#endif
-
+	
 	// Enable vsync. (caps fps to monitor refresh rate)
 	glfwSwapInterval(1);
 
