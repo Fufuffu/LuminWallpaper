@@ -12,12 +12,15 @@
 
 // For occlusion detection
 #include <dwmapi.h>
+#pragma comment(lib, "Dwmapi.lib")
 
 // For DPI awareness functions
 #include <shellscalingapi.h>
+#pragma comment(lib, "Shlwapi.lib")
 
 // For PathFindFileNameW
 #include <shlwapi.h>
+#pragma comment(lib, "Shcore.lib")
 
 namespace lumin
 {
@@ -59,8 +62,18 @@ namespace lumin
 			MonitorInfo currentMonitorInfo;
 			currentMonitorInfo.x = monitorInfoEx.rcMonitor.left;
 			currentMonitorInfo.y = monitorInfoEx.rcMonitor.top;
+
+			// Monitor width/height
 			currentMonitorInfo.width = monitorInfoEx.rcMonitor.right - monitorInfoEx.rcMonitor.left;
 			currentMonitorInfo.height = monitorInfoEx.rcMonitor.bottom - monitorInfoEx.rcMonitor.top;
+
+			// Work are top-left X/Y
+			currentMonitorInfo.workX = monitorInfoEx.rcWork.left;
+			currentMonitorInfo.workY = monitorInfoEx.rcWork.top;
+
+			// Work area width/height
+			currentMonitorInfo.workWidth  = monitorInfoEx.rcWork.right - monitorInfoEx.rcWork.left;
+			currentMonitorInfo.workHeight = monitorInfoEx.rcWork.bottom - monitorInfoEx.rcWork.top; 
 
 			monitorVector->push_back(currentMonitorInfo);
 		}
@@ -185,6 +198,29 @@ namespace lumin
 		}
 	}
 
+	// Customsize window size before displaying it
+	void AdjustWallpaperWindowSize(const MonitorInfo &monitor)
+	{
+		RECT rc = RECT { monitor.workX, 
+						 monitor.workY, 
+					 	 monitor.workX + monitor.workWidth, 
+						 monitor.workY + monitor.workHeight };
+
+		DWORD style   = GetWindowLong(g_engineWindowHandle, GWL_STYLE);
+		DWORD exStyle = GetWindowLong(g_engineWindowHandle, GWL_EXSTYLE);
+		AdjustWindowRectEx(&rc, style, FALSE, exStyle);
+
+		SetWindowPos(
+			g_engineWindowHandle, 
+			NULL, 
+			rc.left, 
+			rc.top, 
+			rc.right - rc.left, 
+			rc.bottom - rc.top, 
+			SWP_NOZORDER | SWP_NOACTIVATE
+		);
+	}
+
 	void ConfigureWallpaperWindow(void *windowHandle, const MonitorInfo &monitor)
 	{
 		g_engineWindowHandle = static_cast<HWND>(windowHandle);
@@ -204,36 +240,10 @@ namespace lumin
 		SetWindowLongPtr(g_engineWindowHandle, GWL_EXSTYLE, exStyle);
 		SetLayeredWindowAttributes(g_engineWindowHandle, 0, 255, LWA_ALPHA);
 
-		// Reparent the engine window directly to Progman
-		SetParent(g_engineWindowHandle, g_progmanWindowHandle);
-
-		// Ensure correct Z-order: below icons but above the system wallpaper
-		if (g_shellViewWindowHandle) {
-			SetWindowPos(
-				g_engineWindowHandle, g_shellViewWindowHandle, 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE
-			);
-		}
-		if (g_workerWindowHandle) {
-			SetWindowPos(
-				g_workerWindowHandle, g_engineWindowHandle, 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE
-			);
-		}
-
-		// Resize/reposition the engine window to match its new parent.
-		// g_progmanWindowHandle spans the entire virtual desktop in modern builds
-		SetWindowPos(
-			g_engineWindowHandle,
-			NULL,
-			monitor.x,
-			monitor.y,
-			monitor.width,
-			monitor.height,
-			SWP_NOZORDER | SWP_NOACTIVATE
-		);
-
-		RedrawWindow(g_engineWindowHandle, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
-
+		// Reparent the engine window to WorkerW
 		g_selectedMonitor = monitor;
+		SetParent(g_engineWindowHandle, g_workerWindowHandle);
+		AdjustWallpaperWindowSize(monitor);
 	}
 
 	struct FullscreenOcclusionData

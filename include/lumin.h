@@ -10,8 +10,15 @@ namespace lumin
 	{
 		int x; // X coordinate of the monitor's top-left corner
 		int y; // Y coordinate of the monitor's top-left corner
+
 		int width; // Monitor width in pixels
 		int height; // Monitor height in pixels
+
+		int workX; // Work area top-left X
+		int workY; // Work area top-left Y
+
+		int workWidth; // Work area width
+		int workHeight; // Work area height
 	};
 
 	// Vector2 structure to avoid engine dependency in this header
