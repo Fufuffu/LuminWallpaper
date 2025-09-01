@@ -5,10 +5,10 @@
 
 int main()
 {
-	// Initializes desktop replacement magic
+	// Initializes desktop replacement magic.
 	lumin::Initialize();
 
-	// Sets up the desktop (-1 is the entire desktop spanning all monitors)
+	// Sets up the desktop (-1 is the entire desktop spanning all monitors).
 	lumin::MonitorInfo monitorInfo = lumin::GetWallpaperTarget(-1);
 
 	// Initialize the raylib window.
@@ -32,10 +32,10 @@ int main()
 
 	// Main render loop.
 	while (!WindowShouldClose()) {
-		// Update the mouse state of the replacement api.
+		// Update the mouse state of the replacement API.
 		lumin::UpdateMouseState();
 
-		// skip rendering if the wallpaper is occluded more than 95%
+		// Skip rendering if the wallpaper is occluded more than 95%.
 		if (lumin::IsMonitorOccluded(monitorInfo, 0.95)) {
 			std::cout << "Wallpaper is occluded" << std::endl;
 			WaitTime(0.1);
@@ -45,7 +45,7 @@ int main()
 		if (lumin::IsDesktopLocked() ) {
 			std::cout << "Desktop is locked" << std::endl;
 			// If the desktop is locked, we can skip rendering.
-			// This is useful to avoid unnecessary rendering when the user is not interacting with the desktop.
+			// This avoids unnecessary rendering when the user is not interacting with the desktop.
 			WaitTime(0.1);
 			continue;
 		}
@@ -73,7 +73,7 @@ int main()
 		int mouseX = lumin::GetMouseX();
 		int mouseY = lumin::GetMouseY();
 
-		// check buttons
+		// Draw a small indicator if left mouse button is down
 		if (lumin::IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
 			DrawCircle(mouseX, mouseY, 10, BLUE);
 		}
