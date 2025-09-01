@@ -7,8 +7,10 @@
 
 #include <Windows.h>
 #include <cstring>
+#include <iostream>
 #include <iterator>
 #include <memory>
+
 
 // For occlusion detection
 #include <dwmapi.h>
@@ -47,6 +49,8 @@ namespace lumin
 	static bool g_currentMouseState[5] = {false};
 	static bool g_previousMouseState[5] = {false};
 
+	static bool g_isPre24H2 = false;
+
 	// Monitor enumeration callback
 	BOOL CALLBACK MonitorEnumProc(
 		HMONITOR monitorHandle, [[maybe_unused]] HDC monitorDeviceContext, [[maybe_unused]] LPRECT monitorRectangle,
@@ -72,8 +76,8 @@ namespace lumin
 			currentMonitorInfo.workY = monitorInfoEx.rcWork.top;
 
 			// Work area width/height
-			currentMonitorInfo.workWidth  = monitorInfoEx.rcWork.right - monitorInfoEx.rcWork.left;
-			currentMonitorInfo.workHeight = monitorInfoEx.rcWork.bottom - monitorInfoEx.rcWork.top; 
+			currentMonitorInfo.workWidth = monitorInfoEx.rcWork.right - monitorInfoEx.rcWork.left;
+			currentMonitorInfo.workHeight = monitorInfoEx.rcWork.bottom - monitorInfoEx.rcWork.top;
 
 			monitorVector->push_back(currentMonitorInfo);
 		}
@@ -82,7 +86,7 @@ namespace lumin
 	}
 
 	// Callback function for EnumWindows to locate the proper WorkerW window
-	BOOL CALLBACK EnumWindowsProc(HWND windowHandle,[[maybe_unused]] LPARAM lParam)
+	BOOL CALLBACK EnumWindowsProc(HWND windowHandle, [[maybe_unused]] LPARAM lParam)
 	{
 		// Look for a child window named "SHELLDLL_DefView" in each top-level window.
 		HWND shellViewWindow = FindWindowEx(windowHandle, NULL, L"SHELLDLL_DefView", NULL);
@@ -127,6 +131,8 @@ namespace lumin
 
 		// Fallback for pre-24H2 builds where the WorkerW is a sibling window
 		if (g_workerWindowHandle == NULL) {
+			g_isPre24H2 = true;
+
 			EnumWindows(EnumWindowsProc, 0);
 		}
 
@@ -157,7 +163,6 @@ namespace lumin
 	std::vector<MonitorInfo> EnumerateMonitors()
 	{
 		std::vector<MonitorInfo> monitorInfoVector;
-
 		EnumDisplayMonitors(NULL, NULL, MonitorEnumProc, reinterpret_cast<LPARAM>(&monitorInfoVector));
 
 		// Convert to desktop coordinates starting at 0,0
@@ -198,29 +203,6 @@ namespace lumin
 		}
 	}
 
-	// Customsize window size before displaying it
-	void AdjustWallpaperWindowSize(const MonitorInfo &monitor)
-	{
-		RECT rc = RECT { monitor.workX, 
-						 monitor.workY, 
-					 	 monitor.workX + monitor.workWidth, 
-						 monitor.workY + monitor.workHeight };
-
-		DWORD style   = GetWindowLong(g_engineWindowHandle, GWL_STYLE);
-		DWORD exStyle = GetWindowLong(g_engineWindowHandle, GWL_EXSTYLE);
-		AdjustWindowRectEx(&rc, style, FALSE, exStyle);
-
-		SetWindowPos(
-			g_engineWindowHandle, 
-			NULL, 
-			rc.left, 
-			rc.top, 
-			rc.right - rc.left, 
-			rc.bottom - rc.top, 
-			SWP_NOZORDER | SWP_NOACTIVATE
-		);
-	}
-
 	void ConfigureWallpaperWindow(void *windowHandle, const MonitorInfo &monitor)
 	{
 		g_engineWindowHandle = static_cast<HWND>(windowHandle);
@@ -229,21 +211,63 @@ namespace lumin
 			return;
 		}
 
-		// Prepare the engine window to be a layered child of Progman
-		LONG_PTR style = GetWindowLongPtr(g_engineWindowHandle, GWL_STYLE);
-		style &= ~(WS_OVERLAPPEDWINDOW); // Remove decorations
-		style |= WS_CHILD; // Child style required for SetParent
-		SetWindowLongPtr(g_engineWindowHandle, GWL_STYLE, style);
+		if (g_isPre24H2) {
+			// Reparent the window to the custom WorkerW window.
+			// This attaches the window as a child of your WorkerW,
+			// which should place it behind desktop icons if your WorkerW is set up that way.
+			SetParent(g_engineWindowHandle, g_workerWindowHandle);
 
-		LONG_PTR exStyle = GetWindowLongPtr(g_engineWindowHandle, GWL_EXSTYLE);
-		exStyle |= WS_EX_LAYERED; // Make it a layered window for 24H2
-		SetWindowLongPtr(g_engineWindowHandle, GWL_EXSTYLE, exStyle);
-		SetLayeredWindowAttributes(g_engineWindowHandle, 0, 255, LWA_ALPHA);
+			// Adjust window styles so that it behaves like a wallpaper.
+			// For example, you may remove the title bar or border:
+			LONG_PTR style = GetWindowLongPtr(g_engineWindowHandle, GWL_STYLE);
+			style &= ~(WS_OVERLAPPEDWINDOW); // Remove common overlapped window styles.
+			style |= WS_CHILD; // Make it a child window.
+			SetWindowLongPtr(g_engineWindowHandle, GWL_STYLE, style);
+		}
+		else {
+			// Prepare the engine window to be a layered child of Progman
+			LONG_PTR style = GetWindowLongPtr(g_engineWindowHandle, GWL_STYLE);
+			style &= ~(WS_OVERLAPPEDWINDOW); // Remove decorations
+			style |= WS_CHILD; // Child style required for SetParent
+			SetWindowLongPtr(g_engineWindowHandle, GWL_STYLE, style);
+
+			LONG_PTR exStyle = GetWindowLongPtr(g_engineWindowHandle, GWL_EXSTYLE);
+			exStyle |= WS_EX_LAYERED; // Make it a layered window for 24H2
+			SetWindowLongPtr(g_engineWindowHandle, GWL_EXSTYLE, exStyle);
+			SetLayeredWindowAttributes(g_engineWindowHandle, 0, 255, LWA_ALPHA);
+
+			// Reparent the engine window directly to Progman
+			SetParent(g_engineWindowHandle, g_progmanWindowHandle);
+
+			// Ensure correct Z-order: below icons but above the system wallpaper
+			if (g_shellViewWindowHandle) {
+				SetWindowPos(
+					g_engineWindowHandle, g_shellViewWindowHandle, 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE
+				);
+			}
+			if (g_workerWindowHandle) {
+				SetWindowPos(
+					g_workerWindowHandle, g_engineWindowHandle, 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE
+				);
+			}
+		}
 
 		// Reparent the engine window to WorkerW
 		g_selectedMonitor = monitor;
-		SetParent(g_engineWindowHandle, g_workerWindowHandle);
-		AdjustWallpaperWindowSize(monitor);
+
+		// Resize/reposition the engine window to match its new parent.
+		// g_progmanWindowHandle spans the entire virtual desktop in modern builds
+		SetWindowPos(
+			g_engineWindowHandle,
+			NULL,
+			monitor.x,
+			monitor.y,
+			monitor.width,
+			monitor.height,
+			SWP_NOZORDER | SWP_NOACTIVATE
+		);
+
+		RedrawWindow(g_engineWindowHandle, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
 	}
 
 	struct FullscreenOcclusionData

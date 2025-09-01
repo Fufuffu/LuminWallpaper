@@ -9,7 +9,7 @@ int main()
 	lumin::Initialize();
 
 	// Sets up the desktop (-1 is the entire desktop spanning all monitors)
-	lumin::MonitorInfo monitorInfo = lumin::GetWallpaperTarget(-1);
+	lumin::MonitorInfo monitorInfo = lumin::GetWallpaperTarget(0);
 
 	// Initialize the raylib window.
 	InitWindow(monitorInfo.width, monitorInfo.height, "Raylib Desktop Demo");
