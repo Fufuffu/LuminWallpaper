@@ -50,6 +50,8 @@ namespace lumin
 	static bool g_previousMouseState[5] = {false};
 
 	static bool g_isPre24H2 = false;
+	static LONG_PTR g_savedStyle = 0;
+	static LONG_PTR g_savedExStyle = 0;
 
 	// Monitor enumeration callback
 	BOOL CALLBACK MonitorEnumProc(
@@ -211,6 +213,9 @@ namespace lumin
 			return;
 		}
 
+		g_savedStyle   = GetWindowLongPtr(g_engineWindowHandle, GWL_STYLE);
+		g_savedExStyle = GetWindowLongPtr(g_engineWindowHandle, GWL_EXSTYLE);
+
 		if (g_isPre24H2) {
 			// Reparent the window to the custom WorkerW window.
 			// This attaches the window as a child of your WorkerW,
@@ -278,17 +283,8 @@ namespace lumin
 		// Detach from the desktop hierarchy (WorkerW or Progman)
 		SetParent(hwnd, NULL);
 
-		LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
-		style &= ~WS_CHILD;
-		style |= WS_OVERLAPPEDWINDOW;
-		SetWindowLongPtr(hwnd, GWL_STYLE, style);
-
-		// WS_EX_LAYERED was only added on 24H2+
-		if (!g_isPre24H2) {
-			LONG_PTR exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
-			exStyle &= ~WS_EX_LAYERED;
-			SetWindowLongPtr(hwnd, GWL_EXSTYLE, exStyle);
-		}
+		SetWindowLongPtr(hwnd, GWL_STYLE, g_savedStyle);
+		SetWindowLongPtr(hwnd, GWL_EXSTYLE, g_savedExStyle);
 
 		// SWP_FRAMECHANGED forces re-evaluation of the new styles
 		SetWindowPos(hwnd, HWND_TOP, 100, 100, 1280, 720,
