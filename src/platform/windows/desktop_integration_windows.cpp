@@ -270,6 +270,35 @@ namespace lumin
 		RedrawWindow(g_engineWindowHandle, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
 	}
 
+	void DeconfigureWallpaperWindow()
+	{
+		HWND hwnd = g_engineWindowHandle;
+		if (!hwnd) return;
+
+		// Detach from the desktop hierarchy (WorkerW or Progman)
+		SetParent(hwnd, NULL);
+
+		LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+		style &= ~WS_CHILD;
+		style |= WS_OVERLAPPEDWINDOW;
+		SetWindowLongPtr(hwnd, GWL_STYLE, style);
+
+		// WS_EX_LAYERED was only added on 24H2+
+		if (!g_isPre24H2) {
+			LONG_PTR exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+			exStyle &= ~WS_EX_LAYERED;
+			SetWindowLongPtr(hwnd, GWL_EXSTYLE, exStyle);
+		}
+
+		// SWP_FRAMECHANGED forces re-evaluation of the new styles
+		SetWindowPos(hwnd, HWND_TOP, 100, 100, 1280, 720,
+		             SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+
+		RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
+
+		g_engineWindowHandle = NULL;
+	}
+
 	struct FullscreenOcclusionData
 	{
 		MonitorInfo monitor;
