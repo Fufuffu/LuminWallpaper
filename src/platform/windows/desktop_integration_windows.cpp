@@ -300,7 +300,7 @@ namespace lumin
 		// Restore saved styles. Explicitly remove WS_CHILD and guarantee WS_CAPTION +
 		// WS_SYSMENU so the window always has a title bar and close button, regardless
 		// of whether the original window was created borderless (e.g. a fullscreen app).
-		LONG_PTR style = (g_savedStyle & ~WS_CHILD) | WS_CAPTION | WS_SYSMENU;
+		LONG_PTR style = (g_savedStyle & ~WS_CHILD) | WS_OVERLAPPEDWINDOW;
 		SetWindowLongPtr(hwnd, GWL_STYLE, style);
 		// Remove WS_EX_LAYERED in case it was added by the post-24H2 path
 		SetWindowLongPtr(hwnd, GWL_EXSTYLE, g_savedExStyle & ~WS_EX_LAYERED);
