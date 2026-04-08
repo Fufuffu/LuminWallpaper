@@ -297,11 +297,25 @@ namespace lumin
 			SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, wallpaperPath, SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
 		}
 
-		SetWindowLongPtr(hwnd, GWL_STYLE, g_savedStyle);
-		SetWindowLongPtr(hwnd, GWL_EXSTYLE, g_savedExStyle);
+		// Restore saved styles. Explicitly remove WS_CHILD and guarantee WS_CAPTION +
+		// WS_SYSMENU so the window always has a title bar and close button, regardless
+		// of whether the original window was created borderless (e.g. a fullscreen app).
+		LONG_PTR style = (g_savedStyle & ~WS_CHILD) | WS_CAPTION | WS_SYSMENU;
+		SetWindowLongPtr(hwnd, GWL_STYLE, style);
+		// Remove WS_EX_LAYERED in case it was added by the post-24H2 path
+		SetWindowLongPtr(hwnd, GWL_EXSTYLE, g_savedExStyle & ~WS_EX_LAYERED);
 
-		// SWP_FRAMECHANGED forces re-evaluation of the new styles
-		SetWindowPos(hwnd, HWND_TOP, 100, 100, width, height,
+		// Clamp the window to the primary monitor and center it, so it is always
+		// fully visible regardless of the (potentially full-desktop) width/height.
+		int screenW = GetSystemMetrics(SM_CXSCREEN);
+		int screenH = GetSystemMetrics(SM_CYSCREEN);
+		int winW    = (width  < screenW) ? width  : screenW;
+		int winH    = (height < screenH) ? height : screenH;
+		int posX    = (screenW - winW) / 2;
+		int posY    = (screenH - winH) / 2;
+
+		// SWP_FRAMECHANGED forces recalculation of the non-client area (title bar, borders)
+		SetWindowPos(hwnd, HWND_TOP, posX, posY, winW, winH,
 		             SWP_FRAMECHANGED | SWP_SHOWWINDOW);
 
 		RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
