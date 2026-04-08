@@ -84,6 +84,9 @@ int main()
 		EndDrawing();
 	}
 
+	// Detach from the desktop hierarchy before destroying the window.
+	lumin::DeconfigureWallpaperWindow(monitorInfo.width, monitorInfo.height);
+
 	// Close the window and unload resources.
 	CloseWindow();
 

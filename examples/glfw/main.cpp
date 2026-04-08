@@ -182,6 +182,9 @@ int main()
 		glfwPollEvents();
 	}
 
+	// Detach from the desktop hierarchy before destroying the window.
+	lumin::DeconfigureWallpaperWindow(monitorInfo.width, monitorInfo.height);
+
 	// Cleanup GLFW resources.
 	glfwDestroyWindow(window);
 	glfwTerminate();

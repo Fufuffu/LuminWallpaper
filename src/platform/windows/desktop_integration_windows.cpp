@@ -147,13 +147,12 @@ namespace lumin
 
 	void Cleanup()
 	{
-		if (g_engineWindowHandle) {
-			// Restore the desktop wallpaper
-			wchar_t wallpaperPath[MAX_PATH] = {0};
-			if (SystemParametersInfo(SPI_GETDESKWALLPAPER, MAX_PATH, wallpaperPath, 0)) {
-				// Reapply the wallpaper to force a refresh.
-				SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, wallpaperPath, SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
-			}
+		// Always restore the wallpaper regardless of engine handle state.
+		// This acts as a safety net if DeconfigureWallpaperWindow was already called,
+		// and also covers cases where the application exits without calling it.
+		wchar_t wallpaperPath[MAX_PATH] = {0};
+		if (SystemParametersInfo(SPI_GETDESKWALLPAPER, MAX_PATH, wallpaperPath, 0) && wallpaperPath[0] != L'\0') {
+			SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, wallpaperPath, SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
 		}
 
 		g_progmanWindowHandle = NULL;
@@ -282,6 +281,21 @@ namespace lumin
 
 		// Detach from the desktop hierarchy (WorkerW or Progman)
 		SetParent(hwnd, NULL);
+
+		// Force WorkerW to erase stale content — critical on Windows 10 (pre-24H2) where
+		// destroying a child window while still parented to WorkerW leaves a frozen last frame.
+		if (g_workerWindowHandle) {
+			RedrawWindow(
+				g_workerWindowHandle, NULL, NULL,
+				RDW_ERASE | RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN
+			);
+		}
+
+		// Restore the wallpaper now, while all handles are still valid
+		wchar_t wallpaperPath[MAX_PATH] = {0};
+		if (SystemParametersInfo(SPI_GETDESKWALLPAPER, MAX_PATH, wallpaperPath, 0) && wallpaperPath[0] != L'\0') {
+			SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, wallpaperPath, SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
+		}
 
 		SetWindowLongPtr(hwnd, GWL_STYLE, g_savedStyle);
 		SetWindowLongPtr(hwnd, GWL_EXSTYLE, g_savedExStyle);
