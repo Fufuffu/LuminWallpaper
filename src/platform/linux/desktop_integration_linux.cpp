@@ -238,18 +238,18 @@ namespace lumin
 		fprintf(stderr, "[lumin] Window configuration completed successfully\n");
 	}
 
-	void DeconfigureWallpaperWindow()
+	void DeconfigureWallpaperWindow(int width, int height)
 	{
 		if (!g_engineWindow || !g_display) return;
 
 		XSync(g_display, False);
 
-		// Restore window manager management (reverse of override_redirect = True)
+		// Restore window manager management
 		XSetWindowAttributes attrs;
 		attrs.override_redirect = False;
 		XChangeWindowAttributes(g_display, g_engineWindow, CWOverrideRedirect, &attrs);
 
-		// Restore window type to normal (reverse of _NET_WM_WINDOW_TYPE_DESKTOP)
+		// Restore window type to normal (instead of _NET_WM_WINDOW_TYPE_DESKTOP)
 		Atom typeAtom   = XInternAtom(g_display, "_NET_WM_WINDOW_TYPE", False);
 		Atom normalAtom = XInternAtom(g_display, "_NET_WM_WINDOW_TYPE_NORMAL", False);
 		if (typeAtom != None && normalAtom != None) {
@@ -266,7 +266,7 @@ namespace lumin
 		}
 
 		// Move to a normal position/size since we can't restore the original
-		XMoveResizeWindow(g_display, g_engineWindow, 100, 100, 1280, 720);
+		XMoveResizeWindow(g_display, g_engineWindow, 100, 100, width, height);
 		XMapWindow(g_display, g_engineWindow);
 		XSync(g_display, False);
 

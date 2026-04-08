@@ -13,6 +13,9 @@
 static NSWindow* g_desktopWindow = nil;
 static bool g_currentMouseState[5] = {false};
 static bool g_previousMouseState[5] = {false};
+static NSWindowLevel g_savedWindowLevel = NSNormalWindowLevel;
+static NSWindowCollectionBehavior g_savedCollectionBehavior = NSWindowCollectionBehaviorDefault;
+static NSWindowStyleMask g_savedStyleMask = NSWindowStyleMaskTitled;
 
 // Custom window class for desktop background
 @interface DesktopWindow : NSWindow
@@ -113,7 +116,12 @@ namespace lumin {
         }
         
         g_selectedMonitor = monitor;
-        
+
+        // Save original state
+        g_savedWindowLevel = [engineWindow level];
+        g_savedCollectionBehavior = [engineWindow collectionBehavior];
+        g_savedStyleMask = [engineWindow styleMask];
+
         // Configure the engine window for desktop background behavior
         [engineWindow setLevel:kCGDesktopWindowLevel];
         [engineWindow setCollectionBehavior:NSWindowCollectionBehaviorCanJoinAllSpaces | 
@@ -137,6 +145,23 @@ namespace lumin {
         [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
         
         g_desktopWindow = engineWindow;
+    }
+
+    void DeconfigureWallpaperWindow(int width, int height) {
+        NSWindow* engineWindow = g_desktopWindow;
+        if (!engineWindow) return;
+
+        [engineWindow setStyleMask:g_savedStyleMask];
+        [engineWindow setLevel:g_savedWindowLevel];
+        [engineWindow setCollectionBehavior:g_savedCollectionBehavior];
+
+        NSRect frame = [engineWindow frame];
+        frame.size = NSMakeSize(width, height);
+        [engineWindow setFrame:frame display:YES];
+
+        [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+
+        g_desktopWindow = nil;
     }
 
     bool IsMonitorOccluded(const MonitorInfo& monitor, double threshold) {

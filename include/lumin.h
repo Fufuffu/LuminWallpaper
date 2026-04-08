@@ -41,8 +41,8 @@ namespace lumin
 	// Configure the application window for wallpaper mode
 	void ConfigureWallpaperWindow(void *windowHandle, const MonitorInfo &monitor);
 
-	// Restore the window to a normal windowed state (reverses ConfigureWallpaperWindow)
-	void DeconfigureWallpaperWindow();
+	// Restore the window to a normal windowed state
+	void DeconfigureWallpaperWindow(int width, int height);
 
 	// Check if monitor is occluded
 	bool IsMonitorOccluded(const MonitorInfo &monitor, double threshold = 0.95);

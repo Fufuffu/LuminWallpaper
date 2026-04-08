@@ -275,7 +275,7 @@ namespace lumin
 		RedrawWindow(g_engineWindowHandle, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
 	}
 
-	void DeconfigureWallpaperWindow()
+	void DeconfigureWallpaperWindow(int width, int height)
 	{
 		HWND hwnd = g_engineWindowHandle;
 		if (!hwnd) return;
@@ -287,7 +287,7 @@ namespace lumin
 		SetWindowLongPtr(hwnd, GWL_EXSTYLE, g_savedExStyle);
 
 		// SWP_FRAMECHANGED forces re-evaluation of the new styles
-		SetWindowPos(hwnd, HWND_TOP, 100, 100, 1280, 720,
+		SetWindowPos(hwnd, HWND_TOP, 100, 100, width, height,
 		             SWP_FRAMECHANGED | SWP_SHOWWINDOW);
 
 		RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
