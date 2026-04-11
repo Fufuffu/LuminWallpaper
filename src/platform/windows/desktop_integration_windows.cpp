@@ -52,6 +52,7 @@ namespace lumin
 	static bool g_isPre24H2 = false;
 	static LONG_PTR g_savedStyle = 0;
 	static LONG_PTR g_savedExStyle = 0;
+	static RECT g_savedWindowRect = {0, 0, 0, 0};
 
 	// Monitor enumeration callback
 	BOOL CALLBACK MonitorEnumProc(
@@ -212,8 +213,9 @@ namespace lumin
 			return;
 		}
 
-		g_savedStyle   = GetWindowLongPtr(g_engineWindowHandle, GWL_STYLE);
+		g_savedStyle = GetWindowLongPtr(g_engineWindowHandle, GWL_STYLE);
 		g_savedExStyle = GetWindowLongPtr(g_engineWindowHandle, GWL_EXSTYLE);
+		GetWindowRect(g_engineWindowHandle, &g_savedWindowRect);
 
 		if (g_isPre24H2) {
 			// Reparent the window to the custom WorkerW window.
@@ -274,10 +276,11 @@ namespace lumin
 		RedrawWindow(g_engineWindowHandle, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
 	}
 
-	void DeconfigureWallpaperWindow(int width, int height)
+	void DeconfigureWallpaperWindow()
 	{
 		HWND hwnd = g_engineWindowHandle;
-		if (!hwnd) return;
+		if (!hwnd)
+			return;
 
 		// Detach from the desktop hierarchy (WorkerW or Progman)
 		SetParent(hwnd, NULL);
@@ -286,8 +289,7 @@ namespace lumin
 		// destroying a child window while still parented to WorkerW leaves a frozen last frame.
 		if (g_workerWindowHandle) {
 			RedrawWindow(
-				g_workerWindowHandle, NULL, NULL,
-				RDW_ERASE | RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN
+				g_workerWindowHandle, NULL, NULL, RDW_ERASE | RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN
 			);
 		}
 
@@ -297,26 +299,24 @@ namespace lumin
 			SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, wallpaperPath, SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
 		}
 
-		// Restore saved styles. Explicitly remove WS_CHILD and guarantee WS_CAPTION +
-		// WS_SYSMENU so the window always has a title bar and close button, regardless
-		// of whether the original window was created borderless (e.g. a fullscreen app).
-		LONG_PTR style = (g_savedStyle & ~WS_CHILD) | WS_OVERLAPPEDWINDOW;
-		SetWindowLongPtr(hwnd, GWL_STYLE, style);
-		// Remove WS_EX_LAYERED in case it was added by the post-24H2 path
+		// Restore the exact styles that were saved before wallpaper mode.
+		// Only strip WS_CHILD (added during configure) and WS_EX_LAYERED (added on post-24H2).
+		SetWindowLongPtr(hwnd, GWL_STYLE, g_savedStyle & ~WS_CHILD);
 		SetWindowLongPtr(hwnd, GWL_EXSTYLE, g_savedExStyle & ~WS_EX_LAYERED);
 
-		// Clamp the window to the primary monitor and center it, so it is always
-		// fully visible regardless of the (potentially full-desktop) width/height.
-		int screenW = GetSystemMetrics(SM_CXSCREEN);
-		int screenH = GetSystemMetrics(SM_CYSCREEN);
-		int winW    = (width  < screenW) ? width  : screenW;
-		int winH    = (height < screenH) ? height : screenH;
-		int posX    = (screenW - winW) / 2;
-		int posY    = (screenH - winH) / 2;
-
-		// SWP_FRAMECHANGED forces recalculation of the non-client area (title bar, borders)
-		SetWindowPos(hwnd, HWND_TOP, posX, posY, winW, winH,
-		             SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+		// Restore the position and size the window had before wallpaper mode.
+		// SWP_FRAMECHANGED forces recalculation of the non-client area (title bar, borders).
+		int savedW = g_savedWindowRect.right - g_savedWindowRect.left;
+		int savedH = g_savedWindowRect.bottom - g_savedWindowRect.top;
+		SetWindowPos(
+			hwnd,
+			HWND_TOP,
+			g_savedWindowRect.left,
+			g_savedWindowRect.top,
+			savedW,
+			savedH,
+			SWP_FRAMECHANGED | SWP_SHOWWINDOW
+		);
 
 		RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
 

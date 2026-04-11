@@ -42,7 +42,7 @@ namespace lumin
 	void ConfigureWallpaperWindow(void *windowHandle, const MonitorInfo &monitor);
 
 	// Restore the window to a normal windowed state
-	void DeconfigureWallpaperWindow(int width, int height);
+	void DeconfigureWallpaperWindow();
 
 	// Check if monitor is occluded
 	bool IsMonitorOccluded(const MonitorInfo &monitor, double threshold = 0.95);

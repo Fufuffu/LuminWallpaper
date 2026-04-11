@@ -16,6 +16,7 @@ static bool g_previousMouseState[5] = {false};
 static NSWindowLevel g_savedWindowLevel = NSNormalWindowLevel;
 static NSWindowCollectionBehavior g_savedCollectionBehavior = NSWindowCollectionBehaviorDefault;
 static NSWindowStyleMask g_savedStyleMask = NSWindowStyleMaskTitled;
+static NSRect g_savedFrame = NSZeroRect;
 
 // Custom window class for desktop background
 @interface DesktopWindow : NSWindow
@@ -121,6 +122,7 @@ namespace lumin {
         g_savedWindowLevel = [engineWindow level];
         g_savedCollectionBehavior = [engineWindow collectionBehavior];
         g_savedStyleMask = [engineWindow styleMask];
+        g_savedFrame = [engineWindow frame];
 
         // Configure the engine window for desktop background behavior
         [engineWindow setLevel:kCGDesktopWindowLevel];
@@ -147,17 +149,14 @@ namespace lumin {
         g_desktopWindow = engineWindow;
     }
 
-    void DeconfigureWallpaperWindow(int width, int height) {
+    void DeconfigureWallpaperWindow() {
         NSWindow* engineWindow = g_desktopWindow;
         if (!engineWindow) return;
 
         [engineWindow setStyleMask:g_savedStyleMask];
         [engineWindow setLevel:g_savedWindowLevel];
         [engineWindow setCollectionBehavior:g_savedCollectionBehavior];
-
-        NSRect frame = [engineWindow frame];
-        frame.size = NSMakeSize(width, height);
-        [engineWindow setFrame:frame display:YES];
+        [engineWindow setFrame:g_savedFrame display:YES];
 
         [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 

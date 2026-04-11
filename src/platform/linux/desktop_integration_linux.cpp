@@ -34,6 +34,8 @@ namespace lumin
 	static MonitorInfo g_selectedMonitor = {0, 0, 0, 0};
 	static bool g_currentMouseState[5] = {false};
 	static bool g_previousMouseState[5] = {false};
+	static int g_savedX = 0, g_savedY = 0;
+	static unsigned int g_savedWidth = 0, g_savedHeight = 0;
 
 	bool Initialize()
 	{
@@ -148,6 +150,19 @@ namespace lumin
 			return;
 		}
 
+		// Save original sizing
+		{
+			Window root_ret;
+			int x = 0, y = 0;
+			unsigned int w = 0, h = 0, border = 0, depth = 0;
+			XGetGeometry(g_display, g_engineWindow, &root_ret, &x, &y, &w, &h, &border, &depth);
+			Window child_ret;
+			XTranslateCoordinates(g_display, g_engineWindow, g_rootWindow, 0, 0,
+			                      &g_savedX, &g_savedY, &child_ret);
+			g_savedWidth  = w;
+			g_savedHeight = h;
+		}
+
 		// Wait for the window to be fully mapped (up to 1 second)
 		bool windowReady = false;
 		for (int attempts = 0; attempts < 100; attempts++) {
@@ -238,7 +253,7 @@ namespace lumin
 		fprintf(stderr, "[lumin] Window configuration completed successfully\n");
 	}
 
-	void DeconfigureWallpaperWindow(int width, int height)
+	void DeconfigureWallpaperWindow()
 	{
 		if (!g_engineWindow || !g_display) return;
 
@@ -265,8 +280,8 @@ namespace lumin
 			);
 		}
 
-		// Move to a normal position/size since we can't restore the original
-		XMoveResizeWindow(g_display, g_engineWindow, 100, 100, width, height);
+		// Restore original position and size
+		XMoveResizeWindow(g_display, g_engineWindow, g_savedX, g_savedY, g_savedWidth, g_savedHeight);
 		XMapWindow(g_display, g_engineWindow);
 		XSync(g_display, False);
 
