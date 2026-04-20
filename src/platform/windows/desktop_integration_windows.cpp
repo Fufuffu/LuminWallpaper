@@ -48,6 +48,24 @@ namespace lumin
 	// Mouse state tracking
 	static bool g_currentMouseState[5] = {false};
 	static bool g_previousMouseState[5] = {false};
+	static float g_mouseWheelX = 0.0f;
+	static float g_mouseWheelY = 0.0f;
+	static float g_pendingWheelX = 0.0f;
+	static float g_pendingWheelY = 0.0f;
+	static HHOOK g_mouseHook = NULL;
+
+	LRESULT CALLBACK MouseHookProc(int nCode, WPARAM wParam, LPARAM lParam)
+	{
+		if (nCode >= 0) {
+			auto *ms = reinterpret_cast<MSLLHOOKSTRUCT *>(lParam);
+			if (wParam == WM_MOUSEWHEEL) {
+				g_pendingWheelY += static_cast<float>(static_cast<short>(HIWORD(ms->mouseData))) / WHEEL_DELTA;
+			} else if (wParam == WM_MOUSEHWHEEL) {
+				g_pendingWheelX += static_cast<float>(static_cast<short>(HIWORD(ms->mouseData))) / WHEEL_DELTA;
+			}
+		}
+		return CallNextHookEx(NULL, nCode, wParam, lParam);
+	}
 
 	static bool g_isPre24H2 = false;
 	static LONG_PTR g_savedStyle = 0;
@@ -143,11 +161,21 @@ namespace lumin
 			return false;
 		}
 
+		g_mouseHook = SetWindowsHookEx(WH_MOUSE_LL, MouseHookProc, NULL, 0);
+		if (!g_mouseHook) {
+			fprintf(stderr, "[lumin] Failed to install mouse hook (error %lu) — scroll wheel will not work\n", GetLastError());
+		}
+
 		return true;
 	}
 
 	void Cleanup()
 	{
+		if (g_mouseHook) {
+			UnhookWindowsHookEx(g_mouseHook);
+			g_mouseHook = NULL;
+		}
+
 		// Always restore the wallpaper regardless of engine handle state.
 		// This acts as a safety net if DeconfigureWallpaperWindow was already called,
 		// and also covers cases where the application exits without calling it.
@@ -530,6 +558,9 @@ namespace lumin
 
 	void UpdateMouseState()
 	{
+		g_mouseWheelX = std::exchange(g_pendingWheelX, 0.0f);
+		g_mouseWheelY = std::exchange(g_pendingWheelY, 0.0f);
+
 		// Save previous state
 		for (int i = 0; i < 5; i++) {
 			g_previousMouseState[i] = g_currentMouseState[i];
@@ -616,6 +647,16 @@ namespace lumin
 			return {static_cast<float>(p.x), static_cast<float>(p.y)};
 		}
 		return {0.0f, 0.0f};
+	}
+
+	float GetMouseWheelMove()
+	{
+		return g_mouseWheelY;
+	}
+
+	Vector2Platform GetMouseWheelMoveV()
+	{
+		return {g_mouseWheelX, g_mouseWheelY};
 	}
 
 	bool SupportsDynamicWallpaper()

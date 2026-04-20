@@ -34,6 +34,9 @@ namespace lumin
 	static MonitorInfo g_selectedMonitor = {0, 0, 0, 0};
 	static bool g_currentMouseState[5] = {false};
 	static bool g_previousMouseState[5] = {false};
+	static float g_mouseWheelX = 0.0f;
+	static float g_mouseWheelY = 0.0f;
+	static Display *g_scrollDisplay = nullptr;
 	static int g_savedX = 0, g_savedY = 0;
 	static unsigned int g_savedWidth = 0, g_savedHeight = 0;
 
@@ -49,6 +52,12 @@ namespace lumin
 		// Enable synchronous X11 error reporting for debugging
 		XSynchronize(g_display, True);
 
+		g_scrollDisplay = XOpenDisplay(nullptr);
+		if (!g_scrollDisplay) {
+			fprintf(stderr, "[lumin] Failed to open scroll display\n");
+			return false;
+		}
+
 		return true;
 	}
 
@@ -61,6 +70,10 @@ namespace lumin
 		if (g_display) {
 			XCloseDisplay(g_display);
 			g_display = nullptr;
+		}
+		if (g_scrollDisplay) {
+			XCloseDisplay(g_scrollDisplay);
+			g_scrollDisplay = nullptr;
 		}
 	}
 
@@ -148,6 +161,13 @@ namespace lumin
 		if (!g_engineWindow) {
 			fprintf(stderr, "[lumin] Could not obtain valid X11 window from handle\n");
 			return;
+		}
+
+		// Subscribe to button press events on a separate connection so we don't
+		// interfere with the engine's own X11 event queue
+		if (g_scrollDisplay) {
+			XSelectInput(g_scrollDisplay, g_engineWindow, ButtonPressMask | ButtonReleaseMask);
+			XSync(g_scrollDisplay, False);
 		}
 
 		// Save original sizing
@@ -363,6 +383,30 @@ namespace lumin
 		for (int i = 0; i < 5; ++i) {
 			g_previousMouseState[i] = g_currentMouseState[i];
 		}
+
+		g_mouseWheelX = 0.0f;
+		g_mouseWheelY = 0.0f;
+		if (g_scrollDisplay) {
+			XEvent ev;
+			while (XCheckMaskEvent(g_scrollDisplay, ButtonPressMask | ButtonReleaseMask, &ev)) {
+				if (ev.type == ButtonPress) {
+					switch (ev.xbutton.button) {
+					case Button4: g_mouseWheelY += 1.0f; break;
+					case Button5: g_mouseWheelY -= 1.0f; break;
+					case 6:       g_mouseWheelX -= 1.0f; break;
+					case 7:       g_mouseWheelX += 1.0f; break;
+					case 8:       g_currentMouseState[3] = true; break;
+					case 9:       g_currentMouseState[4] = true; break;
+					}
+				} else if (ev.type == ButtonRelease) {
+					switch (ev.xbutton.button) {
+					case 8:       g_currentMouseState[3] = false; break;
+					case 9:       g_currentMouseState[4] = false; break;
+					}
+				}
+			}
+		}
+
 		Window ret_win;
 		int rx, ry;
 		unsigned int mask;
@@ -371,8 +415,6 @@ namespace lumin
 		g_currentMouseState[0] = mask & Button1Mask;
 		g_currentMouseState[1] = mask & Button3Mask;
 		g_currentMouseState[2] = mask & Button2Mask;
-		g_currentMouseState[3] = mask & Button4Mask;
-		g_currentMouseState[4] = mask & Button5Mask;
 	}
 
 	bool IsMouseButtonPressed(int button)
@@ -435,6 +477,16 @@ namespace lumin
 			return {static_cast<float>(pt.x), static_cast<float>(pt.y)};
 		}
 		return {0.0f, 0.0f};
+	}
+
+	float GetMouseWheelMove()
+	{
+		return g_mouseWheelY;
+	}
+
+	Vector2Platform GetMouseWheelMoveV()
+	{
+		return {g_mouseWheelX, g_mouseWheelY};
 	}
 
 	bool SupportsDynamicWallpaper()

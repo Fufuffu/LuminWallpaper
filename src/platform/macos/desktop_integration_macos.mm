@@ -13,6 +13,11 @@
 static NSWindow* g_desktopWindow = nil;
 static bool g_currentMouseState[5] = {false};
 static bool g_previousMouseState[5] = {false};
+static float g_mouseWheelX = 0.0f;
+static float g_mouseWheelY = 0.0f;
+static float g_pendingWheelX = 0.0f;
+static float g_pendingWheelY = 0.0f;
+static id g_scrollEventMonitor = nil;
 static NSWindowLevel g_savedWindowLevel = NSNormalWindowLevel;
 static NSWindowCollectionBehavior g_savedCollectionBehavior = NSWindowCollectionBehaviorDefault;
 static NSWindowStyleMask g_savedStyleMask = NSWindowStyleMaskTitled;
@@ -48,10 +53,21 @@ namespace lumin {
         ProcessSerialNumber psn = { 0, kCurrentProcess };
         TransformProcessType(&psn, kProcessTransformToUIElementApplication);
         
+        g_scrollEventMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskScrollWheel
+            handler:^(NSEvent* event) {
+                g_pendingWheelX += (float)[event scrollingDeltaX];
+                g_pendingWheelY += (float)[event scrollingDeltaY];
+                return event;
+            }];
+
         return true;
     }
 
     void Cleanup() {
+        if (g_scrollEventMonitor) {
+            [NSEvent removeMonitor:g_scrollEventMonitor];
+            g_scrollEventMonitor = nil;
+        }
         if (g_desktopWindow) {
             [g_desktopWindow close];
             g_desktopWindow = nil;
@@ -287,6 +303,9 @@ namespace lumin {
     }
 
     void UpdateMouseState() {
+        g_mouseWheelX = g_pendingWheelX; g_pendingWheelX = 0.0f;
+        g_mouseWheelY = g_pendingWheelY; g_pendingWheelY = 0.0f;
+
         // Save previous state
         for (int i = 0; i < 5; i++) {
             g_previousMouseState[i] = g_currentMouseState[i];
@@ -361,6 +380,14 @@ namespace lumin {
         }
         
         return {0.0f, 0.0f};
+    }
+
+    float GetMouseWheelMove() {
+        return g_mouseWheelY;
+    }
+
+    Vector2Platform GetMouseWheelMoveV() {
+        return {g_mouseWheelX, g_mouseWheelY};
     }
 
     bool SupportsDynamicWallpaper() {

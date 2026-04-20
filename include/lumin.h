@@ -52,13 +52,15 @@ namespace lumin
 
 	// Mouse handling (since engine provided mouse doesn't work with wallpaper windows)
 	void UpdateMouseState();
-	bool IsMouseButtonPressed(int button); // 0=left, 1=right, 2=middle
+	bool IsMouseButtonPressed(int button); // 0=left, 1=right, 2=middle, 3=X1, 4=X2
 	bool IsMouseButtonDown(int button);
 	bool IsMouseButtonReleased(int button);
 	bool IsMouseButtonUp(int button);
 	int GetMouseX();
 	int GetMouseY();
 	Vector2Platform GetMousePosition();
+	float GetMouseWheelMove();            // Vertical scroll delta this frame
+	Vector2Platform GetMouseWheelMoveV(); // Both axes scroll delta this frame
 
 	// Platform-specific features
 	bool SupportsDynamicWallpaper();
