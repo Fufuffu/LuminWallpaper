@@ -6,6 +6,7 @@
 #include "lumin.h"
 
 #include <Windows.h>
+#include <atomic>
 #include <cstring>
 #include <iostream>
 #include <iterator>
@@ -50,21 +51,47 @@ namespace lumin
 	static bool g_previousMouseState[5] = {false};
 	static float g_mouseWheelX = 0.0f;
 	static float g_mouseWheelY = 0.0f;
-	static float g_pendingWheelX = 0.0f;
-	static float g_pendingWheelY = 0.0f;
+	static std::atomic<int> g_pendingRawWheelX{0};
+	static std::atomic<int> g_pendingRawWheelY{0};
 	static HHOOK g_mouseHook = NULL;
+	static HANDLE g_hookThread = NULL;
 
 	LRESULT CALLBACK MouseHookProc(int nCode, WPARAM wParam, LPARAM lParam)
 	{
 		if (nCode >= 0) {
 			auto *ms = reinterpret_cast<MSLLHOOKSTRUCT *>(lParam);
 			if (wParam == WM_MOUSEWHEEL) {
-				g_pendingWheelY += static_cast<float>(static_cast<short>(HIWORD(ms->mouseData))) / WHEEL_DELTA;
+				g_pendingRawWheelY.fetch_add(static_cast<short>(HIWORD(ms->mouseData)), std::memory_order_relaxed);
 			} else if (wParam == WM_MOUSEHWHEEL) {
-				g_pendingWheelX += static_cast<float>(static_cast<short>(HIWORD(ms->mouseData))) / WHEEL_DELTA;
+				g_pendingRawWheelX.fetch_add(static_cast<short>(HIWORD(ms->mouseData)), std::memory_order_relaxed);
 			}
 		}
 		return CallNextHookEx(NULL, nCode, wParam, lParam);
+	}
+
+	static DWORD WINAPI HookThreadProc(LPVOID param)
+	{
+		HANDLE readyEvent = static_cast<HANDLE>(param);
+
+		g_mouseHook = SetWindowsHookEx(WH_MOUSE_LL, MouseHookProc, NULL, 0);
+		if (!g_mouseHook) {
+			fprintf(stderr, "[lumin] Failed to install mouse hook (error %lu) — scroll wheel will not work\n", GetLastError());
+		}
+
+		SetEvent(readyEvent);
+
+		MSG msg;
+		while (GetMessage(&msg, nullptr, 0, 0)) {
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+
+		if (g_mouseHook) {
+			UnhookWindowsHookEx(g_mouseHook);
+			g_mouseHook = NULL;
+		}
+
+		return 0;
 	}
 
 	static bool g_isPre24H2 = false;
@@ -161,19 +188,25 @@ namespace lumin
 			return false;
 		}
 
-		g_mouseHook = SetWindowsHookEx(WH_MOUSE_LL, MouseHookProc, NULL, 0);
-		if (!g_mouseHook) {
-			fprintf(stderr, "[lumin] Failed to install mouse hook (error %lu) — scroll wheel will not work\n", GetLastError());
+		HANDLE readyEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+		g_hookThread = CreateThread(NULL, 0, HookThreadProc, readyEvent, 0, NULL);
+		if (g_hookThread) {
+			WaitForSingleObject(readyEvent, 5000);
+		} else {
+			fprintf(stderr, "[lumin] Failed to create hook thread (error %lu) — scroll wheel will not work\n", GetLastError());
 		}
+		CloseHandle(readyEvent);
 
 		return true;
 	}
 
 	void Cleanup()
 	{
-		if (g_mouseHook) {
-			UnhookWindowsHookEx(g_mouseHook);
-			g_mouseHook = NULL;
+		if (g_hookThread) {
+			PostThreadMessage(GetThreadId(g_hookThread), WM_QUIT, 0, 0);
+			WaitForSingleObject(g_hookThread, 5000);
+			CloseHandle(g_hookThread);
+			g_hookThread = NULL;
 		}
 
 		// Always restore the wallpaper regardless of engine handle state.
@@ -558,8 +591,8 @@ namespace lumin
 
 	void UpdateMouseState()
 	{
-		g_mouseWheelX = std::exchange(g_pendingWheelX, 0.0f);
-		g_mouseWheelY = std::exchange(g_pendingWheelY, 0.0f);
+		g_mouseWheelX = g_pendingRawWheelX.exchange(0, std::memory_order_relaxed) / static_cast<float>(WHEEL_DELTA);
+		g_mouseWheelY = g_pendingRawWheelY.exchange(0, std::memory_order_relaxed) / static_cast<float>(WHEEL_DELTA);
 
 		// Save previous state
 		for (int i = 0; i < 5; i++) {
